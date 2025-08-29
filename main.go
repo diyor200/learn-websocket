@@ -1,67 +1,57 @@
 package main
 
 import (
+	"fmt"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-
-	"github.com/gorilla/websocket"
+	"time"
 )
 
-var (
-	clients   = make(map[*websocket.Conn]bool)
-	broadcast = make(chan Message)
+var upgrader = websocket.Upgrader{}
 
-	upgrade = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
-)
-
-func main() {
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
-	http.HandleFunc("/ws", handleConnection)
-	go handleMessages()
-
-	log.Println("Listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func handleConnection(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrade.Upgrade(w, r, nil)
+func handler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
-
 		return
 	}
-	defer ws.Close()
+	defer conn.Close()
 
-	clients[ws] = true
-	for {
-		var msg Message
-		err = ws.ReadJSON(&msg)
-		if err != nil {
-			log.Println(err)
-			delete(clients, ws)
-			break
+	conn.SetPongHandler(func(appData string) error {
+		log.Printf("pong: %s", appData)
+		return nil
+	})
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, []byte("are you alive?")); err != nil {
+					log.Println("❌ Write ping error:", err)
+					return // only exit if connection is broken
+				}
+			}
 		}
-		broadcast <- msg
+	}()
+
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("❌ Read error:", err)
+			return
+		}
+		fmt.Println("📩 Server received message:", string(msg))
 	}
 }
 
-func handleMessages() {
-	for {
-		msg := <-broadcast
-		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				log.Printf("error: %v\n", err)
-				client.Close()
-				delete(clients, client)
-			}
-		}
-	}
+func main() {
+	http.HandleFunc("/ws", handler)
+	fmt.Println("Server started at :8080")
+	go startClient()
+	log.Fatal(http.ListenAndServe(":8080", nil))
+
 }

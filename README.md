@@ -1,1 +1,1 @@
-# Simple chat app
+# ping pong handler
