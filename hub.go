@@ -1,18 +1,25 @@
 package main
 
 type Hub struct {
-	clients   map[*Client]bool
+	// map clients
+	clients map[*Client]bool
+
+	// register requests from clients
+	register chan *Client
+
+	// unregister requests from clients
+	unregister chan *Client
+
+	// incoming messages from clients
 	broadcast chan []byte
-	register  chan *Client
-	unregiter chan *Client
 }
 
 func newHub() *Hub {
 	return &Hub{
-		clients:   make(map[*Client]bool),
-		broadcast: make(chan []byte),
-		register:  make(chan *Client),
-		unregiter: make(chan *Client),
+		clients:    make(map[*Client]bool),
+		broadcast:  make(chan []byte),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
 	}
 }
 
@@ -21,7 +28,7 @@ func (h *Hub) run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
-		case client := <-h.unregiter:
+		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)

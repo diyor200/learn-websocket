@@ -22,7 +22,7 @@
     const message = document.getElementById("message");
 
     const socket = new WebSocket("ws://" + location.host + "/ws");
-
+    console.log(location.host)
     elems = chat.getElements
 
     socket.onmessage = function (event) {
@@ -39,6 +39,7 @@
             text: message.value
         };
         socket.send(JSON.stringify(msg));
+
         message.value = "";
     }
 

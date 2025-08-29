@@ -1,18 +1,15 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"net/http"
 )
 
-var addr = flag.String("addr", ":8080", "http service address")
-
 func serveHome(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL)
-
+	fmt.Println(r.URL)
 	if r.URL.Path != "/" {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "page not found", http.StatusNotFound)
 		return
 	}
 
@@ -22,11 +19,10 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeFile(w, r, "home.html")
-
 }
 
 func main() {
-	flag.Parse()
+
 	hub := newHub()
 	go hub.run()
 
@@ -35,8 +31,6 @@ func main() {
 		serveWs(hub, w, r)
 	})
 
-	err := http.ListenAndServe(*addr, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
+	log.Println("server running on :8080")
+	http.ListenAndServe(":8080", nil)
 }
